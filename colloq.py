@@ -17,6 +17,7 @@ TZ = "America/New_York"
 TZINFO = pytz.timezone(TZ)
 CALNAME = 'Cornell CS Colloquia'
 LOCATION = 'Gates G01'
+PREFIX_RE = r'CS Colloquium: '
 
 
 def parse_date(date):
@@ -82,8 +83,9 @@ def colloq():
 
     for event in scrape(PAGE_URL):
         date = parse_date(event['date'] + ' ' + event['time'])
+        title = re.sub(PREFIX_RE, '', event['title'])
         cal.add_component(make_event(
-            event['title'],
+            title,
             date,
             LOCATION,
             urllib.parse.urljoin(PAGE_URL, event['link']),
