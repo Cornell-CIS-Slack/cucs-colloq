@@ -75,8 +75,7 @@ def colloq():
     cal.add('X-WR-TIMEZONE', TZ)
 
     for event in scrape(PAGE_URL):
-        date = parse_date(event['date'])
-
+        date = parse_date(event['date'] + ' ' + event['time'])
         cal.add_component(make_event(
             event['title'],
             date,
