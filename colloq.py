@@ -20,12 +20,16 @@ LOCATION = 'Gates G01'
 
 
 def parse_date(date):
+    """Parse a date from (any) string."""
+
     out = dateutil.parser.parse(date)
     out = out.replace(tzinfo=TZINFO)
     return out
 
 
 def make_event(title, date, location, link, speaker):
+    """Make an iCal `Event` object from the colloquium details."""
+
     event = Event()
     event.add('summary', title)
     event.add('dtstart', date)
@@ -38,8 +42,8 @@ def make_event(title, date, location, link, speaker):
 
 
 def scrape(url):
-    """Get the event data from the public calendar URL.
-    """
+    """Get the event data from the public calendar URL."""
+
     req = requests.get(url)
     soup = bs4.BeautifulSoup(req.content, "html.parser")
     events_div = soup.find("div", class_="view-events")
@@ -68,6 +72,8 @@ def scrape(url):
 
 
 def colloq():
+    """Produce an iCal file on stdout for the colloquia."""
+
     cal = Calendar()
     cal.add('prodid', '-//colloq.py//cucs//')
     cal.add('version', '2.0')
