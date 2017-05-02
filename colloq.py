@@ -18,7 +18,7 @@ TZINFO = pytz.timezone(TZ)
 CALNAME = 'Cornell CS Colloquia'
 LOCATION = 'Gates G01'
 PREFIX_RE = r'CS Colloquium: '
-SKIP_PREFIX_RE = r'No Colloquium'
+SKIP_PREFIX_RES = (r'No Colloquium', r'No CS Colloquium')
 
 
 def parse_date(date):
@@ -85,8 +85,16 @@ def colloq():
     for event in scrape(PAGE_URL):
         date = parse_date(event['date'] + ' ' + event['time'])
         title = re.sub(PREFIX_RE, '', event['title'])
-        if re.match(SKIP_PREFIX_RE, title):
+
+        # Check whether this entry says there's no colloquium.
+        skip = False
+        for skip_prefix_re in SKIP_PREFIX_RES:
+            if re.match(skip_prefix_re, title):
+                skip = True
+                break
+        if skip:
             continue
+
         cal.add_component(make_event(
             title,
             date,
