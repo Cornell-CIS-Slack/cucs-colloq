@@ -11,7 +11,8 @@ import urllib.parse
 import sys
 
 
-PAGE_URL = 'https://www.cs.cornell.edu/events/colloquium'
+TOC_URL = 'http://www.cs.cornell.edu/events'
+LINK_NAME = 'CS Colloquium'
 COLLOQ_LENGTH = 60  # minutes
 TZ = "America/New_York"
 TZINFO = pytz.timezone(TZ)
@@ -73,8 +74,23 @@ def scrape(url):
         }
 
 
+def find_colloq_url(toc_url, link_name):
+    """Scrape a table-of-contents page to find the current CS colloquium
+    link.
+    """
+    req = requests.get(toc_url)
+    soup = bs4.BeautifulSoup(req.content, "html.parser")
+    for menu in soup.find_all("ul", class_="menu"):
+        for link in menu.find_all("a"):
+            if link.get_text() == link_name:
+                path = link['href']
+                return urllib.parse.urljoin(toc_url, path)
+    assert False, "could not find schedule link"
+
+
 def colloq():
     """Produce an iCal file on stdout for the colloquia."""
+    page_url = find_colloq_url(TOC_URL, LINK_NAME)
 
     cal = Calendar()
     cal.add('prodid', '-//colloq.py//cucs//')
@@ -82,7 +98,7 @@ def colloq():
     cal.add('X-WR-CALNAME', CALNAME)
     cal.add('X-WR-TIMEZONE', TZ)
 
-    for event in scrape(PAGE_URL):
+    for event in scrape(page_url):
         date = parse_date(event['date'] + ' ' + event['time'])
         title = re.sub(PREFIX_RE, '', event['title'])
 
@@ -99,7 +115,7 @@ def colloq():
             title,
             date,
             LOCATION,
-            urllib.parse.urljoin(PAGE_URL, event['link']),
+            urllib.parse.urljoin(page_url, event['link']),
             event['speaker'],
         ))
 
