@@ -3,23 +3,26 @@
 import bs4
 import requests
 import re
-from datetime import timedelta
+from datetime import timedelta, datetime
 import dateutil.parser
 from icalendar import Calendar, Event, vText, vUri
 import pytz
 import urllib.parse
 import sys
+import csv
 
 
 TOC_URL = 'http://www.cs.cornell.edu/events'
 LINK_NAME = 'CS Colloquium'
-COLLOQ_LENGTH = 60  # minutes
+COLLOQ_LENGTH = 70  # minutes
 TZ = "America/New_York"
 TZINFO = pytz.timezone(TZ)
 CALNAME = 'Cornell CS Colloquia'
 LOCATION = 'Gates G01'
 PREFIX_RE = r'CS Colloquium: '
 SKIP_PREFIX_RES = (r'No Colloquium', r'No CS Colloquium')
+SPEAKER_URL_RE = r'<strong>Speaker:<\/strong>\s<span><a href="(.*)">.*<\/a><\/span>'
+SPEAKER_HYPERLINK = "=HYPERLINK(\"{1}\",\"{0}\")"
 
 
 def parse_date(date):
@@ -61,6 +64,8 @@ def scrape(url):
         text = listing.get_text()
         match = re.search(r'Speaker:\s+(.*)', text)
         speaker = match.group(1).strip() if match else None
+        match = re.search(SPEAKER_URL_RE, str(listing))
+        speaker_url = match.group(1).strip() if match else None
         match = re.search(r'Host:\s+(.*)', text)
         host = match.group(1).strip() if match else None
 
@@ -69,6 +74,7 @@ def scrape(url):
             'date': date,
             'time': time,
             'speaker': speaker,
+            'speaker_url': speaker_url,
             'host': host,
             'link': link,
         }
@@ -89,7 +95,7 @@ def find_colloq_url(toc_url, link_name):
 
 
 def colloq():
-    """Produce an iCal file on stdout for the colloquia."""
+    """Produce an iCal file on stdout and a CSV output file for the colloquia."""
     page_url = find_colloq_url(TOC_URL, LINK_NAME)
 
     cal = Calendar()
@@ -98,26 +104,56 @@ def colloq():
     cal.add('X-WR-CALNAME', CALNAME)
     cal.add('X-WR-TIMEZONE', TZ)
 
-    for event in scrape(page_url):
-        date = parse_date(event['date'] + ' ' + event['time'])
-        title = re.sub(PREFIX_RE, '', event['title'])
+    with open("colloq.csv", 'w') as ofile:
+        header = [
+                "Colloquium Date",
+                "Czar 1",
+                "Czar 2",
+                "Name",
+                "Affiliation",
+                "Title/Abstract",
+                "Host",
+            ]
+        writer = csv.DictWriter(ofile, fieldnames=header)
 
-        # Check whether this entry says there's no colloquium.
-        skip = False
-        for skip_prefix_re in SKIP_PREFIX_RES:
-            if re.match(skip_prefix_re, title):
-                skip = True
-                break
-        if skip:
-            continue
+        for event in scrape(page_url):
+            date = parse_date(event['date'] + ' ' + event['time'])
+            title = re.sub(PREFIX_RE, '', event['title'])
 
-        cal.add_component(make_event(
-            title,
-            date,
-            LOCATION,
-            urllib.parse.urljoin(page_url, event['link']),
-            event['speaker'],
-        ))
+            # Check whether this entry says there's no colloquium.
+            skip = False
+            for skip_prefix_re in SKIP_PREFIX_RES:
+                if re.match(skip_prefix_re, title):
+                    skip = True
+                    break
+            if skip:
+                continue
+
+            cal.add_component(make_event(
+                title,
+                date,
+                LOCATION,
+                urllib.parse.urljoin(page_url, event['link']),
+                event['speaker'],
+            ))
+
+            # Hyperlink for CSV for Google Sheets
+            speaker = SPEAKER_HYPERLINK.format(event['speaker'], event['speaker_url'])
+
+            # Simplify TBD titles
+            title = "TBD" if ("Title TBD" in event['title']) else event['title']
+
+            row = {
+                    "Colloquium Date" : date.strftime("%m/%d/%Y"),
+                    "Czar 1" : "",
+                    "Czar 2" : "",
+                    "Name" : speaker,
+                    "Affiliation" : "",
+                    "Title/Abstract" : title,
+                    "Host" : event['host'],
+                }
+
+            writer.writerow(row)
 
     sys.stdout.buffer.write(cal.to_ical())
 
