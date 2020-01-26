@@ -50,8 +50,13 @@ def make_event(title, date, location, link, speaker):
 def scrape(url):
     """Get the event data from the public calendar URL."""
 
-    req = requests.get(url)
-    soup = bs4.BeautifulSoup(req.content, "html.parser")
+    with open("source.html", 'r') as sfile:
+        content = sfile.read()
+    soup = bs4.BeautifulSoup(content, "html.parser")
+
+    # req = requests.get(url)
+    # soup = bs4.BeautifulSoup(req.content, "html.parser")
+
     events_div = soup.find("div", class_="view-events")
     for listing in events_div.find_all("div", class_="event-listing"):
         # Extract the *easy* metadata.
